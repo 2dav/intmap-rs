@@ -42,32 +42,20 @@ impl<K: IntKey, V> IntMap<K, V> {
         self.len = 0;
         self.inner.mark_all_free();
     }
-
-    pub fn len(&self) -> usize {
-        self.len
-    }
-
-    pub fn capacity(&self) -> usize {
-        1 + AsPrimitive::<usize>::as_(self.index_mask)
-    }
-
-    pub fn is_empty(&self) -> bool {
-        self.len == 0
-    }
-
-    pub fn is_full(&self) -> bool {
-        self.len == self.capacity()
-    }
 }
 
 impl<K: IntKey, V> IntMap<K, V> {
+    fn index_for_key(&self, key: K) -> usize {
+        (key & self.index_mask).as_()
+    }
+
     fn row_mut(&mut self, key: K) -> RowRef<K, V, Mut<'_>> {
-        let ix = (key & self.index_mask).as_();
+        let ix = self.index_for_key(key);
         unsafe { self.inner.row_mut(ix) }
     }
 
     fn row(&self, key: K) -> RowRef<K, V, Immut<'_>> {
-        let ix = (key & self.index_mask).as_();
+        let ix = self.index_for_key(key);
         unsafe { self.inner.row(ix) }
     }
 }
@@ -121,6 +109,36 @@ impl<K: IntKey, V> IntMap<K, V> {
 
     pub fn values(&self) -> &[V] {
         self.inner.values(..self.len)
+    }
+}
+
+impl<K: IntKey, V> IntMap<K, V> {
+    pub fn len(&self) -> usize {
+        self.len
+    }
+
+    pub fn capacity(&self) -> usize {
+        1 + AsPrimitive::<usize>::as_(self.index_mask)
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.len == 0
+    }
+
+    pub fn is_full(&self) -> bool {
+        self.len == self.capacity()
+    }
+
+    pub fn probes(&self) -> Vec<usize> {
+        self.keys().iter().enumerate().map(|(i, k)| i - self.index_for_key(*k)).collect()
+    }
+
+    pub fn avg_probes_count(&self) -> f32 {
+        (self.probes().into_iter().sum::<usize>() as f32) / self.len as f32
+    }
+
+    pub fn load_factor(&self) -> f32 {
+        self.len as f32 / self.capacity() as f32
     }
 }
 
