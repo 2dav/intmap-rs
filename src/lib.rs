@@ -1,9 +1,7 @@
-mod buffer;
-mod inner;
-use inner::{Distance, Immut, Inner, Mut, RowRef, SearchResult};
+mod map;
+use map::{Distance, SearchResult, Table};
 use num_traits::{AsPrimitive, FromPrimitive, PrimInt};
 use std::fmt::{Debug, Display};
-use std::mem;
 
 mod private {
     pub trait SealedKey {}
@@ -21,26 +19,23 @@ sealed_set!(IntKey [i32 u32 i64 usize u64 i128 u128] private::SealedKey:
     Debug Display PrimInt FromPrimitive Default
     AsPrimitive::<u32> AsPrimitive::<usize>);
 
-#[derive(Clone)]
 pub struct IntMap<K, V> {
-    inner: Inner<K, V>,
+    table: Table<K, V>,
     index_mask: K,
-    len: usize,
 }
 
 impl<K: IntKey, V> IntMap<K, V> {
     pub fn with_capacity(capacity: u32) -> Self {
         let capacity = capacity.min(1 << 30).next_power_of_two();
         let table_cap = capacity as usize + Distance::MAX as usize;
-        let inner = Inner::with_capacity(table_cap).unwrap();
+        let table = Table::with_capacity(table_cap);
         let index_mask = K::from_u32(capacity - 1).unwrap();
 
-        Self { len: 0, index_mask, inner }
+        Self { index_mask, table }
     }
 
     pub fn clear(&mut self) {
-        self.len = 0;
-        self.inner.mark_all_free();
+        self.table.clear();
     }
 }
 
@@ -48,73 +43,56 @@ impl<K: IntKey, V> IntMap<K, V> {
     fn index_for_key(&self, key: K) -> usize {
         (key & self.index_mask).as_()
     }
-
-    fn row_mut(&mut self, key: K) -> RowRef<K, V, Mut<'_>> {
-        let ix = self.index_for_key(key);
-        unsafe { self.inner.row_mut(ix) }
-    }
-
-    fn row(&self, key: K) -> RowRef<K, V, Immut<'_>> {
-        let ix = self.index_for_key(key);
-        unsafe { self.inner.row(ix) }
-    }
 }
 
 impl<K: IntKey, V> IntMap<K, V> {
     pub fn insert(&mut self, key: K, value: V) -> Option<V> {
-        match self.row_mut(key).search(&key) {
-            SearchResult::Found(mut row) => {
-                Some(mem::replace(unsafe { row.value_mut().assume_init_mut() }, value))
-            }
-            SearchResult::NotFound(row, distance) => {
-                row.insert(key, value, distance);
-                self.len += 1;
+        match self.table.search(&key, self.index_for_key(key)) {
+            SearchResult::Found(index) => Some(std::mem::replace(&mut self.table[index], value)),
+            SearchResult::NotFound(index, distance) => {
+                self.table.insert(index, key, value, distance);
                 None
             }
         }
     }
 
     pub fn remove(&mut self, key: K) -> Option<V> {
-        match self.row_mut(key).search(&key) {
-            SearchResult::Found(row) => {
-                let value = unsafe { row.remove() };
-                self.len -= 1;
-                Some(value)
-            }
+        match self.table.search(&key, self.index_for_key(key)) {
+            SearchResult::Found(index) => Some(self.table.remove(index)),
             SearchResult::NotFound(..) => None,
         }
     }
 
     pub fn get(&self, key: K) -> Option<&V> {
-        match self.row(key).search(&key) {
-            SearchResult::Found(row) => Some(unsafe { row.value().assume_init_ref() }),
+        match self.table.search(&key, self.index_for_key(key)) {
+            SearchResult::Found(index) => Some(&self.table[index]),
             SearchResult::NotFound(..) => None,
         }
     }
 
     pub fn get_mut(&mut self, key: K) -> Option<&mut V> {
-        match self.row_mut(key).search(&key) {
-            SearchResult::Found(mut row) => Some(unsafe { row.value_mut().assume_init_mut() }),
+        match self.table.search(&key, self.index_for_key(key)) {
+            SearchResult::Found(index) => Some(&mut self.table[index]),
             SearchResult::NotFound(..) => None,
         }
     }
 
     pub fn contains(&self, key: K) -> bool {
-        self.row(key).search(&key).is_found()
+        self.table.search(&key, self.index_for_key(key)).is_found()
     }
 
     pub fn keys(&self) -> &[K] {
-        self.inner.keys(..self.len)
+        self.table.keys()
     }
 
     pub fn values(&self) -> &[V] {
-        self.inner.values(..self.len)
+        self.table.values()
     }
 }
 
 impl<K: IntKey, V> IntMap<K, V> {
     pub fn len(&self) -> usize {
-        self.len
+        self.table.len()
     }
 
     pub fn capacity(&self) -> usize {
@@ -122,11 +100,11 @@ impl<K: IntKey, V> IntMap<K, V> {
     }
 
     pub fn is_empty(&self) -> bool {
-        self.len == 0
+        self.len() == 0
     }
 
     pub fn is_full(&self) -> bool {
-        self.len == self.capacity()
+        self.len() == self.capacity()
     }
 
     pub fn probes(&self) -> Vec<usize> {
@@ -134,11 +112,18 @@ impl<K: IntKey, V> IntMap<K, V> {
     }
 
     pub fn avg_probes_count(&self) -> f32 {
-        (self.probes().into_iter().sum::<usize>() as f32) / self.len as f32
+        (self.probes().into_iter().sum::<usize>() as f32) / self.len() as f32
     }
 
     pub fn load_factor(&self) -> f32 {
-        self.len as f32 / self.capacity() as f32
+        self.len() as f32 / self.capacity() as f32
+    }
+}
+
+impl<K: Clone, V: Clone> Clone for IntMap<K, V> {
+    #[inline]
+    fn clone(&self) -> Self {
+        Self { table: self.table.clone(), index_mask: self.index_mask.clone() }
     }
 }
 

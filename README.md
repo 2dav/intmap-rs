@@ -14,7 +14,7 @@ operation, thus you're paying for what you don't use
 ``` 
 **Successfull lookups** i.e. lookup for an element that is in the map
 hashbrown32  19 ns    intmap32  6 ns
-hashbrown64  18 ns    intmap64  11 ns
+hashbrown64  18 ns    intmap64  10 ns
 
 **Unsuccessfull lookups** i.e. lookup for an element that's not in the map
 hashbrown32  3 ns     intmap32  5 ns
@@ -23,15 +23,15 @@ hashbrown64  3 ns     intmap64  5 ns
 **Random keys**
 insertions:
 hashbrown32  16 ns    intmap32  9 ns
-hashbrown64  17 ns    intmap64  13 ns
+hashbrown64  17 ns    intmap64  12 ns
 deletions:
-hashbrown32  21 ns    intmap32  10 ns
+hashbrown32  21 ns    intmap32  9 ns
 hashbrown64  21 ns    intmap64  12 ns
 
 **Monotonically increasing keys**
 insertions:
 hashbrown32  47 ns    intmap32  3 ns   
-hashbrown64  55 ns    intmap64  6 ns
+hashbrown64  55 ns    intmap64  4 ns
 deletions:
 hashbrown32  45 ns    intmap32  2 ns
 hashbrown64  38 ns    intmap64  2 ns
