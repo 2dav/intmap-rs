@@ -5,8 +5,8 @@ Cache-efficient map with integer-only keys
 - Fixed capacity
 
 Note:
-- all underlying memory pages are being touched upon construction and `clear` operation, thus 
-you're paying for what you don't use
+- memory pages backing aux data(u8*capacity) are being touched upon construction and `clear` 
+operation, thus you're paying for what you don't use
 - drops underlying memory all at once, without calling individual destructors
 
 ### Benchmarks
