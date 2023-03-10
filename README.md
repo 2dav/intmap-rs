@@ -9,6 +9,8 @@ Note:
 operation, thus you're paying for what you don't use
 - drops underlying memory all at once, without calling individual destructors
 
+Based on the ["I Wrote The Fastest Hashtable"](https://probablydance.com/2017/02/26/i-wrote-the-fastest-hashtable) by Malte Skarupke.
+
 ### Benchmarks
 `hashbrown` with `fxhash` as a baseline, 32/64 means the type of key used i32/i64
 ``` 
