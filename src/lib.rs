@@ -34,12 +34,14 @@ impl<K: IntKey, V> IntMap<K, V> {
         Self { index_mask, table }
     }
 
+    #[inline]
     pub fn clear(&mut self) {
         self.table.clear();
     }
 }
 
 impl<K: IntKey, V> IntMap<K, V> {
+    #[inline]
     fn index_for_key(&self, key: K) -> usize {
         (key & self.index_mask).as_()
     }
@@ -95,14 +97,17 @@ impl<K: IntKey, V> IntMap<K, V> {
         self.table.len()
     }
 
+    #[inline]
     pub fn capacity(&self) -> usize {
         1 + AsPrimitive::<usize>::as_(self.index_mask)
     }
 
+    #[inline]
     pub fn is_empty(&self) -> bool {
         self.len() == 0
     }
 
+    #[inline]
     pub fn is_full(&self) -> bool {
         self.len() == self.capacity()
     }
@@ -111,10 +116,12 @@ impl<K: IntKey, V> IntMap<K, V> {
         self.keys().iter().enumerate().map(|(i, k)| i - self.index_for_key(*k)).collect()
     }
 
+    #[inline]
     pub fn avg_probes_count(&self) -> f32 {
         (self.probes().into_iter().sum::<usize>() as f32) / self.len() as f32
     }
 
+    #[inline]
     pub fn load_factor(&self) -> f32 {
         self.len() as f32 / self.capacity() as f32
     }

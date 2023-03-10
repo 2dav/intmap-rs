@@ -30,18 +30,22 @@ impl<K, V> Table<K, V> {
         }
     }
 
+    #[inline]
     pub(crate) fn keys(&self) -> &[K] {
         unsafe { slice_assume_init_ref(self.keys.as_slice(self.len)) }
     }
 
+    #[inline]
     pub(crate) fn values(&self) -> &[V] {
         unsafe { slice_assume_init_ref(self.values.as_slice(self.len)) }
     }
 
+    #[inline]
     pub fn len(&self) -> usize {
         self.len
     }
 
+    #[inline]
     pub fn clear(&mut self) {
         self.distances.fill(FREE, self.capacity);
         self.len = 0;
@@ -54,21 +58,17 @@ impl<K, V> Table<K, V> {
         K: Borrow<Q>,
         Q: ?Sized + Ord,
     {
-        if self.distances[index] == FREE {
-            return SearchResult::NotFound(index, 0);
-        } else if key.eq(unsafe { self.keys[index].assume_init_ref().borrow() }) {
-            return SearchResult::Found(index);
-        }
+        index = match self.distance_key_cmp(index, 0, key) {
+            Ordering::Less => return SearchResult::NotFound(index, 0),
+            Ordering::Equal => return SearchResult::Found(index),
+            Ordering::Greater => index + 1,
+        };
 
-        index += 1;
-
-        if self.distances[index] < 1 {
-            return SearchResult::NotFound(index, 1);
-        } else if key.eq(unsafe { self.keys[index].assume_init_ref().borrow() }) {
-            return SearchResult::Found(index);
-        }
-
-        index += 1;
+        index = match self.distance_key_cmp(index, 1, key) {
+            Ordering::Less => return SearchResult::NotFound(index, 1),
+            Ordering::Equal => return SearchResult::Found(index),
+            Ordering::Greater => index + 1,
+        };
 
         for distance in 2..Distance::MAX {
             index = match self.distance_key_cmp(index, distance, key) {
@@ -152,7 +152,6 @@ impl<K, V> Table<K, V> {
         }
     }
 
-    #[inline]
     fn write(&mut self, index: usize, key: K, value: V, distance: Distance) {
         self.keys[index].write(key);
         self.values[index].write(value);
@@ -161,7 +160,6 @@ impl<K, V> Table<K, V> {
 
     // SAFETY:
     // ensure that memory at 'index' is properly initialized
-    #[inline]
     unsafe fn swap_at(&mut self, i: usize, key: &mut K, value: &mut V, distance: &mut Distance) {
         use std::ptr::swap_nonoverlapping;
         swap_nonoverlapping(self.distances.offset_mut(i), distance as *mut _, 1);
@@ -171,7 +169,6 @@ impl<K, V> Table<K, V> {
 
     // SAFETY:
     // ensure that memory at both indices is properly initialized
-    #[inline]
     unsafe fn swap_indices(&mut self, i: usize, j: usize) {
         self.distances.swap_indices(i, j);
         self.keys.swap_indices(i, j);
@@ -249,26 +246,32 @@ impl<T> Buffer<T> {
         Self(mem::ManuallyDrop::new(Vec::with_capacity(capacity)).as_mut_ptr())
     }
 
+    #[inline]
     pub fn as_slice(&self, len: usize) -> &[T] {
         unsafe { std::slice::from_raw_parts(self.0, len) }
     }
 
+    #[inline]
     pub fn as_slice_mut(&mut self, len: usize) -> &mut [T] {
         unsafe { std::slice::from_raw_parts_mut(self.0, len) }
     }
 
+    #[inline]
     pub unsafe fn into_inner(self, len: usize, capacity: usize) -> Vec<T> {
         Vec::from_raw_parts(self.0, len, capacity)
     }
 
+    #[inline]
     pub unsafe fn offset_mut(&self, offset: usize) -> *mut T {
         self.0.add(offset)
     }
 
+    #[inline]
     pub unsafe fn copy_to(&self, dst: &mut Buffer<T>, len: usize) {
         std::ptr::copy_nonoverlapping(self.0, dst.0, len);
     }
 
+    #[inline]
     pub unsafe fn swap_indices(&mut self, i: usize, j: usize) {
         std::ptr::swap_nonoverlapping(self.offset_mut(i), self.offset_mut(j), 1);
     }
