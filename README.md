@@ -7,7 +7,6 @@ Cache-efficient map with integer-only keys
 Note:
 - memory pages backing aux data(u8*capacity) are being touched upon construction and `clear` 
 operation, thus you're paying for what you don't use
-- drops underlying memory all at once, without calling individual destructors
 
 Based on the ["I Wrote The Fastest Hashtable"](https://probablydance.com/2017/02/26/i-wrote-the-fastest-hashtable) by Malte Skarupke.
 

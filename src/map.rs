@@ -197,18 +197,31 @@ impl<K, V: Clone> Clone for Table<K, V> {
 impl<K, V> Drop for Table<K, V> {
     #[inline]
     fn drop(&mut self) {
-        drop(unsafe {
-            mem::replace(&mut self.distances, Buffer::with_capacity(0))
-                .into_inner(self.capacity, self.capacity)
-        });
-        drop(unsafe {
-            mem::replace(&mut self.keys, Buffer::with_capacity(0))
-                .into_inner(self.capacity, self.capacity)
-        });
-        drop(unsafe {
-            mem::replace(&mut self.values, Buffer::with_capacity(0))
-                .into_inner(self.capacity, self.capacity)
-        });
+        // call individual Value destructors
+        if std::mem::needs_drop::<V>() {
+            self.distances
+                .as_slice_mut(self.capacity)
+                .iter()
+                .enumerate()
+                .filter_map(|(i, d)| FREE.ne(d).then_some(i))
+                .for_each(|i| unsafe {
+                    let p = self.values.0.add(i).cast::<V>();
+                    std::ptr::drop_in_place(p);
+                });
+        }
+
+        // free the buffers
+        macro_rules! drop_buff {
+            ($key:expr) => {
+                let _ = unsafe {
+                    mem::replace(&mut $key, Buffer::with_capacity(0))
+                        .into_inner(self.capacity, self.capacity)
+                };
+            };
+        }
+        drop_buff!(self.distances);
+        drop_buff!(self.keys);
+        drop_buff!(self.values);
     }
 }
 
@@ -326,9 +339,4 @@ impl<T> IndexMut<usize> for Buffer<T> {
     fn index_mut(&mut self, index: usize) -> &mut Self::Output {
         unsafe { &mut *self.0.add(index) }
     }
-}
-
-#[inline]
-unsafe fn slice_assume_init_ref<T>(slice: &[MaybeUninit<T>]) -> &[T] {
-    unsafe { &*(slice as *const [MaybeUninit<T>] as *const [T]) }
 }

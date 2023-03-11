@@ -357,4 +357,37 @@ mod tests {
             }
         }
     }
+
+    #[test]
+    fn drop_check() {
+        use std::sync::Arc;
+        let is_dropped = Arc::new(1);
+        let mut m = IntMap::<u32, Arc<i32>>::with_capacity(2);
+        m.insert(0, Arc::clone(&is_dropped));
+        m.insert(1, Arc::clone(&is_dropped));
+        drop(m);
+        assert_eq!(Arc::strong_count(&is_dropped), 1);
+    }
+
+    #[test]
+    fn drop_check_replace() {
+        use std::sync::Arc;
+        let is_dropped = Arc::new(1);
+        let mut m = IntMap::<u32, Arc<i32>>::with_capacity(2);
+        m.insert(0, Arc::clone(&is_dropped));
+        m.insert(0, Arc::clone(&is_dropped));
+        drop(m);
+        assert_eq!(Arc::strong_count(&is_dropped), 1);
+    }
+
+    #[test]
+    fn drop_check2() {
+        let mut m = IntMap::<u32, String>::with_capacity(5);
+        m.insert(0, String::from("should"));
+        m.insert(1, String::from("not"));
+        m.insert(2, String::from("crash"));
+        m.insert(3, String::from("with"));
+        m.insert(4, String::from("double-free"));
+        drop(m);
+    }
 }
