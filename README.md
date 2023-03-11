@@ -5,8 +5,8 @@ Cache-efficient map with integer-only keys
 - Fixed capacity
 
 Memory overhead is only one byte per element with a huge "but" - all spare memory
-allocated upfront, regardless of the number of elements stored, i.e. `N*(1 + size<K> + size<V>)` bytes, 
-where `N*1` bytes is always 'dirty', and other depends on the K/V locality.
+is allocated upfront, regardless of the number of elements stored, i.e. `N*(1 + size<K> + size<V>)` bytes, 
+where `N*1` bytes are always 'dirty' and the rest depends on the K/V locality.
 
 Based on the ["I Wrote The Fastest Hashtable"](https://probablydance.com/2017/02/26/i-wrote-the-fastest-hashtable) by Malte Skarupke.
 
