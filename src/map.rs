@@ -1,6 +1,7 @@
 use std::{
     borrow::Borrow,
     cmp::Ordering,
+    marker::PhantomData,
     mem::{self, MaybeUninit},
     ops::{Index, IndexMut},
 };
@@ -31,13 +32,15 @@ impl<K, V> Table<K, V> {
     }
 
     #[inline]
-    pub(crate) fn keys(&self) -> &[K] {
-        unsafe { slice_assume_init_ref(self.keys.as_slice(self.len)) }
-    }
-
-    #[inline]
-    pub(crate) fn values(&self) -> &[V] {
-        unsafe { slice_assume_init_ref(self.values.as_slice(self.len)) }
+    pub(crate) fn keys(&self) -> Keys<'_, K> {
+        unsafe {
+            Keys {
+                keys: self.keys.offset_mut(0),
+                keys_end: self.keys.offset_mut(self.capacity),
+                distances: self.distances.offset_mut(0),
+                _marker: PhantomData,
+            }
+        }
     }
 
     #[inline]
@@ -225,6 +228,31 @@ impl<K, V> IndexMut<usize> for Table<K, V> {
     }
 }
 
+pub struct Keys<'a, K> {
+    keys: *mut MaybeUninit<K>,
+    keys_end: *mut MaybeUninit<K>,
+    distances: *mut Distance,
+    _marker: PhantomData<&'a K>,
+}
+
+impl<'a, K> Iterator for Keys<'a, K> {
+    type Item = &'a K;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        unsafe {
+            while self.keys < self.keys_end {
+                self.keys = self.keys.add(1);
+                self.distances = self.distances.add(1);
+
+                if *self.distances.offset(-1) != FREE {
+                    return Some((*self.keys.offset(-1)).assume_init_ref());
+                }
+            }
+            None
+        }
+    }
+}
+
 pub enum SearchResult {
     Found(usize),
     NotFound(usize, Distance),
@@ -244,11 +272,6 @@ struct Buffer<T>(*mut T);
 impl<T> Buffer<T> {
     pub fn with_capacity(capacity: usize) -> Self {
         Self(mem::ManuallyDrop::new(Vec::with_capacity(capacity)).as_mut_ptr())
-    }
-
-    #[inline]
-    pub fn as_slice(&self, len: usize) -> &[T] {
-        unsafe { std::slice::from_raw_parts(self.0, len) }
     }
 
     #[inline]

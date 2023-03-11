@@ -1,5 +1,5 @@
 mod map;
-use map::{Distance, SearchResult, Table};
+use map::{Distance, Keys, SearchResult, Table};
 use num_traits::{AsPrimitive, FromPrimitive, PrimInt};
 use std::fmt::{Debug, Display};
 
@@ -83,12 +83,8 @@ impl<K: IntKey, V> IntMap<K, V> {
         self.table.search(&key, self.index_for_key(key)).is_found()
     }
 
-    pub fn keys(&self) -> &[K] {
+    pub fn keys(&self) -> Keys<K> {
         self.table.keys()
-    }
-
-    pub fn values(&self) -> &[V] {
-        self.table.values()
     }
 }
 
@@ -113,7 +109,7 @@ impl<K: IntKey, V> IntMap<K, V> {
     }
 
     pub fn probes(&self) -> Vec<usize> {
-        self.keys().iter().enumerate().map(|(i, k)| i - self.index_for_key(*k)).collect()
+        self.keys().enumerate().map(|(i, k)| i - self.index_for_key(*k)).collect()
     }
 
     #[inline]
@@ -185,6 +181,14 @@ mod tests {
     }
 
     #[test]
+    fn insert_sparse_keys() {
+        let mut m = IntMap::with_capacity(4);
+        m.insert(0, 1);
+        m.insert(3, 1);
+        assert_eq!(m.keys().cloned().collect::<Vec<u32>>(), &[0, 3]);
+    }
+
+    #[test]
     fn insert_collide() {
         let mut m: IntMap<u32, u32> = IntMap::with_capacity(4);
         m.insert(0, 0);
@@ -210,7 +214,7 @@ mod tests {
         2     8   2
         3     1   2
         */
-        assert_eq!(m.keys(), &[0, 4, 8, 1]);
+        assert_eq!(m.keys().cloned().collect::<Vec<u32>>(), &[0, 4, 8, 1]);
     }
 
     #[test]
@@ -237,7 +241,7 @@ mod tests {
         4     2   2
         */
         assert_eq!(m.len(), 5);
-        assert_eq!(m.keys(), &[0, 8, 16, 1, 2]);
+        assert_eq!(m.keys().cloned().collect::<Vec<u32>>(), &[0, 8, 16, 1, 2]);
     }
 
     #[test]
